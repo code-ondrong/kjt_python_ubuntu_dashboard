@@ -87,14 +87,12 @@ def _build_header(stats: Dict) -> Panel:
     )
 
     if status:
-        # If status has multiple lines, show them all
         if "\n" in status:
             lines = status.split("\n")
-            text += Text("\n", "")
-            text += Text.assemble(
-                (lines[0], COLOR_WHITE),
-                *[item for line in lines[1:] for item in (Text("\n"), Text(line, COLOR_DIM))],
-            )
+            status_text = Text(lines[0], style=COLOR_WHITE)
+            for line in lines[1:]:
+                status_text += Text("\n") + Text(line, style=COLOR_DIM)
+            text += Text("\n") + status_text
         else:
             text += Text(f"\n{status}", style=COLOR_GREEN)
 
