@@ -77,7 +77,7 @@ def _build_header(stats: Dict) -> Panel:
 
     text = Text.assemble(
         (" 🖥  SYSTEM MONITOR — ", COLOR_CYAN),
-        (hostname, COLOR_WHITE, "bold"),
+        (hostname, f"{COLOR_WHITE} bold"),
         ("\n", ""),
         (f" OS: {os_arch}", COLOR_DIM),
         ("   │   ", ""),
@@ -112,7 +112,7 @@ def _build_cpu_panel(stats: Dict) -> Panel:
     bar = _styled_bar(overall, width=30)
     pct = _pct_text(overall)
     lines.append(Text.assemble(
-        ("CPU  ", COLOR_WHITE, "bold"),
+        ("CPU  ", f"{COLOR_WHITE} bold"),
         bar,
         (" ", ""),
         pct,
@@ -179,7 +179,7 @@ def _build_gpu_panel(stats: Dict) -> Panel:
     mem_bar = _styled_bar(mem_pct, width=20)
 
     text = Text.assemble(
-        (f"{name}", COLOR_WHITE, "bold"),
+        (f"{name}", f"{COLOR_WHITE} bold"),
         ("\nUtil: ", ""), util_bar, (" ", ""), _pct_text(util),
         ("\nMem:  ", ""), mem_bar, (" ", ""),
         (f"{mem_pct:.0f}%  ({mem_used:.0f}/{mem_total:.0f} MB)", ""),
@@ -201,7 +201,7 @@ def _build_ram_panel(stats: Dict) -> Panel:
     pct = _pct_text(percent)
 
     text = Text.assemble(
-        ("RAM  ", COLOR_WHITE, "bold"),
+        ("RAM  ", f"{COLOR_WHITE} bold"),
         bar,
         (" ", ""),
         pct,
@@ -245,7 +245,7 @@ def _build_network_panel(stats: Dict) -> Panel:
     tx = net.get("tx_speed_kbs", 0)
 
     text = Text.assemble(
-        (" NETWORK\n", COLOR_WHITE, "bold"),
+        (" NETWORK\n", f"{COLOR_WHITE} bold"),
         ("  ↓ RX: ", COLOR_GREEN), (f"{rx:.1f} KB/s", COLOR_WHITE),
         ("\n  ↑ TX: ", COLOR_CYAN), (f"{tx:.1f} KB/s", COLOR_WHITE),
     )
