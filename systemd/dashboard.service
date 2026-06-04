@@ -1,0 +1,22 @@
+[Unit]
+Description=Terminal System Monitoring Dashboard
+After=network.target nvidia-persistenced.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=dashboard
+Group=dashboard
+WorkingDirectory=/opt/system-monitor
+ExecStart=/usr/bin/python3 /opt/system-monitor/main.py
+Restart=always
+RestartSec=3
+StandardInput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Environment=TERM=linux
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
