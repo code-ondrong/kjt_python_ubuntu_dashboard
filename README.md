@@ -37,21 +37,37 @@ processes — all in a beautiful Rich-powered TUI.
 
 ## Prerequisites
 
-- **Ubuntu** 20.04+ (or any Linux with systemd)
-- **Python 3.8+**
-- **pip3**
+- **Ubuntu** 22.04+ (or any Linux with systemd)
+- **Python 3.8+** (`sudo apt install python3 python3-venv`)
+- **pip** (`sudo apt install python3-pip`)
 - Optional: **NVIDIA GPU** with `nvidia-smi` (GPU metrics auto-detected)
+
+> **Note for Ubuntu 24.04+**: System Python is "externally managed" (PEP 668).
+> You **must** use a virtual environment (venv) — the instructions below
+> already account for this.
 
 ## Quick Install
 
-### 1. Run locally (no install)
+### 1. Run locally (no install) — with venv
 
 ```bash
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies inside the venv
 pip install -r requirements.txt
+
+# Run the dashboard
 python main.py
 ```
 
 Press **Ctrl+C** to exit.
+
+When you're done, deactivate the venv:
+```bash
+deactivate
+```
 
 ### 2. Full systemd service (dashboard on tty1 at boot)
 
@@ -59,6 +75,13 @@ Press **Ctrl+C** to exit.
 sudo bash scripts/install_service.sh
 sudo reboot
 ```
+
+The install script will:
+1. Create a dedicated `dashboard` system user
+2. Copy project files to `/opt/system-monitor/`
+3. Create a Python venv at `/opt/system-monitor/venv/`
+4. Install dependencies inside the venv (bypassing PEP 668)
+5. Install and enable the systemd service
 
 After reboot the dashboard appears on **tty1** (Ctrl+Alt+F1) immediately.
 Use **Ctrl+Alt+F2** for a regular login prompt.
@@ -124,7 +147,8 @@ Edit `config.py` to customise:
 |---------|------------|
 | No GPU section | `nvidia-smi` not found or no NVIDIA GPU — hidden automatically |
 | Dashboard doesn't appear on tty1 | Run `sudo systemctl status dashboard` to check for errors |
-| `pip install` fails | Ensure `python3-pip` is installed: `sudo apt install python3-pip` |
+| `pip install` fails (externally-managed-environment) | Create a venv: `python3 -m venv venv && source venv/bin/activate`, then re-run pip |
+| `python3 -m venv` fails | Install venv: `sudo apt install python3-venv python3-full` |
 | Service won't start | Check logs: `sudo journalctl -u dashboard -f` |
 | Terminal artefacts after exit | Run `reset` in the terminal |
 

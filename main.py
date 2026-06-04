@@ -25,8 +25,7 @@ from system_stats import (
     get_network_speed,
     get_ram_usage,
     get_system_info,
-    get_top_processes_cpu,
-    get_top_processes_mem,
+    get_top_processes,
     get_uptime,
     NetworkSpeedTracker,
 )

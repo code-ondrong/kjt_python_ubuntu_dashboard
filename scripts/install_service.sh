@@ -38,8 +38,15 @@ sudo cp "${REPO_DIR}/dashboard.py"     "${INSTALL_DIR}/"
 sudo cp "${REPO_DIR}/requirements.txt" "${INSTALL_DIR}/"
 sudo chown -R dashboard:dashboard "${INSTALL_DIR}"
 
-echo "==> Installing Python dependencies..."
-sudo pip3 install -r "${INSTALL_DIR}/requirements.txt"
+echo "==> Creating Python virtual environment..."
+sudo python3 -m venv "${INSTALL_DIR}/venv"
+sudo "${INSTALL_DIR}/venv/bin/pip" install --upgrade pip
+
+echo "==> Installing Python dependencies into venv..."
+sudo "${INSTALL_DIR}/venv/bin/pip" install -r "${INSTALL_DIR}/requirements.txt"
+
+echo "==> Fixing venv permissions for 'dashboard' user..."
+sudo chown -R dashboard:dashboard "${INSTALL_DIR}/venv"
 
 echo "==> Installing systemd service..."
 sudo cp "${SERVICE_SRC}" "${SERVICE_DST}"
