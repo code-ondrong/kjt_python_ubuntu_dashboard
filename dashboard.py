@@ -260,16 +260,38 @@ def _build_network_panel(stats: Dict) -> Panel:
     cf = stats.get("cloudflared", {})
     if cf.get("enabled"):
         if cf.get("running"):
-            conns = cf.get("connections")
-            conn_str = f"  ({conns} conn)" if conns is not None else ""
             text += Text.assemble(
                 ("\n  ☁ Tunnel: ", COLOR_YELLOW),
                 ("UP", f"{COLOR_GREEN} bold"),
-                (conn_str, COLOR_DIM),
             )
             tunnel_name = cf.get("tunnel", "")
             if tunnel_name:
                 text += Text(f"  [{tunnel_name[:16]}]", style=COLOR_DIM)
+
+            # Edge connections — the number of live links to Cloudflare's
+            # network (4 = fully redundant / healthy).
+            conns = cf.get("connections")
+            if conns is not None:
+                if conns >= 4:
+                    health, hcolor = "sehat", COLOR_GREEN
+                elif conns >= 1:
+                    health, hcolor = "kurang", COLOR_YELLOW
+                else:
+                    health, hcolor = "tidak konek", COLOR_RED
+                conn_line = Text.assemble(
+                    ("\n     Koneksi edge: ", COLOR_DIM),
+                    (f"{conns}/4", f"{hcolor} bold"),
+                    (f" ({health})", hcolor),
+                )
+            else:
+                conn_line = Text(
+                    "\n     Koneksi edge: n/a (metrics off)", style=COLOR_DIM
+                )
+            version = cf.get("version", "")
+            if version:
+                conn_line += Text(f"  ·  v{version}", style=COLOR_DIM)
+            text += conn_line
+
             for host in cf.get("hostnames", [])[:2]:
                 text += Text.assemble(("\n     → ", COLOR_DIM), (host, COLOR_CYAN))
         else:

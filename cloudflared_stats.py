@@ -123,24 +123,59 @@ def _read_config() -> Dict:
 
 # ── Metrics endpoint ─────────────────────────────────────────────────────
 
-def _metrics_connections() -> Optional[int]:
-    """
-    Return the number of ready edge connections from cloudflared's metrics
-    server, or None if no metrics endpoint is reachable.
+# cloudflared's version never changes while running, so parse it once and
+# cache it to avoid fetching the (larger) /metrics body on every refresh.
+_version_cache: Optional[str] = None
 
-    The ``/ready`` endpoint returns JSON like ``{"status":200,"readyConnections":4}``.
-    Requires the tunnel to be started with ``--metrics <host:port>`` matching
-    one of ``CLOUDFLARED_METRICS_URLS``.
+
+def _ready_connections(base: str) -> Optional[int]:
+    """
+    Number of ready edge connections from the ``/ready`` endpoint of *base*,
+    or None if unreachable.
+
+    ``/ready`` returns JSON like ``{"status":200,"readyConnections":4}``.
+    """
+    url = base.rstrip("/") + "/ready"
+    try:
+        with urlopen(url, timeout=1) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return int(data.get("readyConnections", 0))
+    except (URLError, OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def _cloudflared_version(base: str) -> str:
+    """
+    cloudflared version parsed once from the ``/metrics`` ``build_info`` gauge
+    and cached. Returns an empty string if unavailable.
+    """
+    global _version_cache
+    if _version_cache is not None:
+        return _version_cache
+    url = base.rstrip("/") + "/metrics"
+    try:
+        with urlopen(url, timeout=1) as resp:
+            body = resp.read().decode("utf-8", "replace")
+    except (URLError, OSError):
+        return ""
+    match = re.search(r'build_info\{[^}]*version="([^"]+)"', body)
+    _version_cache = match.group(1) if match else ""
+    return _version_cache
+
+
+def _metrics_info() -> Dict:
+    """
+    Return ``{"connections": int|None, "version": str}`` from the first
+    reachable metrics server in ``CLOUDFLARED_METRICS_URLS``.
+
+    Requires the tunnel to be started with ``--metrics <host:port>`` (or
+    ``metrics:`` in config.yml) matching one of the configured URLs.
     """
     for base in CLOUDFLARED_METRICS_URLS:
-        url = base.rstrip("/") + "/ready"
-        try:
-            with urlopen(url, timeout=1) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            return int(data.get("readyConnections", 0))
-        except (URLError, OSError, ValueError, json.JSONDecodeError):
-            continue
-    return None
+        conns = _ready_connections(base)
+        if conns is not None:
+            return {"connections": conns, "version": _cloudflared_version(base)}
+    return {"connections": None, "version": ""}
 
 
 # ── Public API ───────────────────────────────────────────────────────────
@@ -159,6 +194,7 @@ def get_cloudflared_status() -> Dict:
             "tunnel": str,          # tunnel name/id, if discoverable
             "hostnames": [str],     # public hostnames from local config
             "connections": int | None,  # active edge connections, if metrics reachable
+            "version": str,         # cloudflared version, if metrics reachable
         }
 
     When cloudflared is disabled, only ``{"enabled": False}`` is returned.
@@ -178,6 +214,7 @@ def get_cloudflared_status() -> Dict:
         "tunnel": "",
         "hostnames": [],
         "connections": None,
+        "version": "",
     }
 
     if not running:
@@ -188,6 +225,9 @@ def get_cloudflared_status() -> Dict:
     result["hostnames"] = cfg.get("hostnames", [])
     if not result["tunnel"] and proc:
         result["tunnel"] = _tunnel_name_from_cmdline(proc["cmdline"])
-    result["connections"] = _metrics_connections()
+
+    metrics = _metrics_info()
+    result["connections"] = metrics["connections"]
+    result["version"] = metrics["version"]
 
     return result

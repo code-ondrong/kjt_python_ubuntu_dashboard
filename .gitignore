@@ -6,6 +6,13 @@ __pycache__/
 dist/
 build/
 
+# ── Secrets / environment files ─────────────────────────────────────────
+# NOTE: `.env/` alone only matches a directory — the bare `.env` file below
+# is what keeps SERVER_SSH / ROOT_USER / ROOT_PASSWORD out of git.
+.env
+.env.*
+!.env.example
+
 # ── Virtual environments ────────────────────────────────────────────────
 venv/
 .venv/

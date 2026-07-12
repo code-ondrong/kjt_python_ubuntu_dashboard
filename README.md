@@ -107,6 +107,31 @@ sudo systemctl stop dashboard
 sudo systemctl disable dashboard
 ```
 
+## Cloudflare Tunnel monitoring
+
+The Network panel shows the `cloudflared` tunnel status. It works with no extra
+setup for **UP/DOWN** (process + `systemctl is-active cloudflared`) and reads
+public hostnames from `/etc/cloudflared/config.yml` when present.
+
+To also show **edge connections** (`Koneksi edge: 4/4`) and the cloudflared
+version, enable the local metrics server so the dashboard can read `/ready`:
+
+```yaml
+# /etc/cloudflared/config.yml
+metrics: 127.0.0.1:2000
+```
+```bash
+# or on the command line
+cloudflared tunnel --metrics 127.0.0.1:2000 run <tunnel>
+sudo systemctl restart cloudflared
+```
+
+**"Koneksi edge"** = number of live connections `cloudflared` holds to
+Cloudflare's edge network. A healthy tunnel keeps **4** (for redundancy);
+fewer means degraded, `0` means it cannot reach the edge. Configure the
+service name, config path, and metrics URL under `CLOUDFLARED_*` in
+[`config.py`](config.py) (set `CLOUDFLARED_ENABLED = False` to hide it).
+
 ## Key Bindings
 
 | Key | Action |
