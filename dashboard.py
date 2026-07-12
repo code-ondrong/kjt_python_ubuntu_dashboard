@@ -254,6 +254,32 @@ def _build_network_panel(stats: Dict) -> Panel:
     text = Text.assemble(
         (" NETWORK\n", f"{COLOR_WHITE} bold"),
         ("  🌐 Local IP: ", COLOR_YELLOW), (f"{primary}", f"{COLOR_WHITE} bold"),
+    )
+
+    # Cloudflare Tunnel status
+    cf = stats.get("cloudflared", {})
+    if cf.get("enabled"):
+        if cf.get("running"):
+            conns = cf.get("connections")
+            conn_str = f"  ({conns} conn)" if conns is not None else ""
+            text += Text.assemble(
+                ("\n  ☁ Tunnel: ", COLOR_YELLOW),
+                ("UP", f"{COLOR_GREEN} bold"),
+                (conn_str, COLOR_DIM),
+            )
+            tunnel_name = cf.get("tunnel", "")
+            if tunnel_name:
+                text += Text(f"  [{tunnel_name[:16]}]", style=COLOR_DIM)
+            for host in cf.get("hostnames", [])[:2]:
+                text += Text.assemble(("\n     → ", COLOR_DIM), (host, COLOR_CYAN))
+        else:
+            state = cf.get("state", "stopped")
+            text += Text.assemble(
+                ("\n  ☁ Tunnel: ", COLOR_YELLOW),
+                (f"DOWN ({state})", f"{COLOR_RED} bold"),
+            )
+
+    text += Text.assemble(
         ("\n  ↓ RX: ", COLOR_GREEN), (f"{rx:.1f} KB/s", COLOR_WHITE),
         ("\n  ↑ TX: ", COLOR_CYAN), (f"{tx:.1f} KB/s", COLOR_WHITE),
     )

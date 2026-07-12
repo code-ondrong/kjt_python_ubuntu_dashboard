@@ -2,7 +2,8 @@
 
 A real-time terminal-based system monitoring dashboard for Ubuntu servers.
 Displays CPU (per-core), RAM, NVIDIA GPU, disk usage, network I/O, local IP
-addresses, and top processes — all in a beautiful Rich-powered TUI.
+addresses, Cloudflare Tunnel status, and top processes — all in a beautiful
+Rich-powered TUI.
 
 ## Preview
 
@@ -122,6 +123,8 @@ kjt_python_ubuntu_dashboard/
 ├── config.py               # Configuration
 ├── system_stats.py          # CPU/RAM/Disk/Network/Process metrics
 ├── gpu_stats.py             # NVIDIA GPU via nvidia-smi
+├── docker_stats.py          # Docker container metrics
+├── cloudflared_stats.py     # Cloudflare Tunnel status
 ├── dashboard.py             # Rich layout builder
 ├── requirements.txt         # Python deps
 ├── README.md                # This file

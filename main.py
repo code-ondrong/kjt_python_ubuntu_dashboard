@@ -31,6 +31,7 @@ from system_stats import (
     NetworkSpeedTracker,
 )
 from docker_stats import get_container_stats
+from cloudflared_stats import get_cloudflared_status
 from process_manager import kill_process, parse_command, search_processes
 
 
@@ -153,6 +154,7 @@ def _collect_stats(net_tracker: NetworkSpeedTracker) -> Dict:
         "disk": get_disk_usage(),
         "network": net_tracker.get_speed(),
         "ip": get_local_ip(),
+        "cloudflared": get_cloudflared_status(),
         "gpu": get_gpu_info(),
         "docker": get_container_stats(),
         "top_cpu": get_top_processes(sort_by=s1),
