@@ -30,12 +30,22 @@ COLOR_MAGENTA = "magenta"
 COLOR_WHITE = "white"
 COLOR_DIM = "bright_black"
 
+# ── Network panel ────────────────────────────────────────────────────────
+# Interface name prefixes hidden from the Network panel (virtual/bridge NICs
+# like Docker/LXD/libvirt bridges add clutter without being a real local IP).
+NET_HIDDEN_IFACE_PREFIXES = (
+    "lo", "docker", "br-", "veth", "virbr", "lxdbr", "lxcbr",
+    "tap", "tun", "cni", "flannel", "cali", "kube", "vmnet",
+)
+# Tunnel hostnames packed per line in the Network panel.
+HOSTNAMES_PER_LINE = 3
+
 # ── Layout Split Ratios ─────────────────────────────────────────────────
 LAYOUT_HEADER_RATIO = 3
 LAYOUT_ROW1_RATIO = 14  # CPU + GPU
 LAYOUT_ROW2_RATIO = 5   # RAM
-LAYOUT_ROW3_RATIO = 11  # Disk + Network (Network shows IP + Cloudflare Tunnel)
-LAYOUT_FOOTER_RATIO = 12  # Top 5 CPU + Top 5 RAM
+LAYOUT_ROW3_RATIO = 15  # Disk + Network (Network shows IP + Tunnel + hostnames)
+LAYOUT_FOOTER_RATIO = 11  # Top 5 CPU + Top 5 RAM
 
 LAYOUT_CPU_RATIO = 60
 LAYOUT_GPU_RATIO = 40

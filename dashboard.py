@@ -23,6 +23,8 @@ from config import (
     COLOR_RED,
     COLOR_WHITE,
     COLOR_YELLOW,
+    HOSTNAMES_PER_LINE,
+    NET_HIDDEN_IFACE_PREFIXES,
     LAYOUT_CPU_RATIO,
     LAYOUT_DISK_RATIO,
     LAYOUT_DOCKER_ROW_RATIO,
@@ -251,73 +253,62 @@ def _build_network_panel(stats: Dict) -> Panel:
     primary = ip_info.get("primary", "N/A")
     interfaces = ip_info.get("interfaces", [])
 
+    # Local IP + RX/TX on one compact line (panel title already says "Network").
     text = Text.assemble(
-        (" NETWORK\n", f"{COLOR_WHITE} bold"),
-        ("  🌐 Local IP: ", COLOR_YELLOW), (f"{primary}", f"{COLOR_WHITE} bold"),
+        (" 🌐 ", COLOR_YELLOW), (f"{primary}", f"{COLOR_WHITE} bold"),
+        ("    ↓ ", COLOR_GREEN), (f"{rx:.1f}", COLOR_WHITE), (" KB/s", COLOR_DIM),
+        ("   ↑ ", COLOR_CYAN), (f"{tx:.1f}", COLOR_WHITE), (" KB/s", COLOR_DIM),
     )
 
     # Cloudflare Tunnel status
     cf = stats.get("cloudflared", {})
     if cf.get("enabled"):
         if cf.get("running"):
-            text += Text.assemble(
-                ("\n  ☁ Tunnel: ", COLOR_YELLOW),
-                ("UP", f"{COLOR_GREEN} bold"),
-            )
-            tunnel_name = cf.get("tunnel", "")
-            if tunnel_name:
-                text += Text(f"  [{tunnel_name[:16]}]", style=COLOR_DIM)
-
-            # Edge connections — the number of live links to Cloudflare's
-            # network (4 = fully redundant / healthy).
             conns = cf.get("connections")
-            if conns is not None:
-                if conns >= 4:
-                    health, hcolor = "sehat", COLOR_GREEN
-                elif conns >= 1:
-                    health, hcolor = "kurang", COLOR_YELLOW
-                else:
-                    health, hcolor = "tidak konek", COLOR_RED
-                conn_line = Text.assemble(
-                    ("\n     Koneksi edge: ", COLOR_DIM),
-                    (f"{conns}/4", f"{hcolor} bold"),
-                    (f" ({health})", hcolor),
-                )
+            if conns is None:
+                health, hcolor, conn_str = "n/a", COLOR_DIM, "metrics off"
+            elif conns >= 4:
+                health, hcolor, conn_str = "sehat", COLOR_GREEN, f"{conns}/4"
+            elif conns >= 1:
+                health, hcolor, conn_str = "kurang", COLOR_YELLOW, f"{conns}/4"
             else:
-                conn_line = Text(
-                    "\n     Koneksi edge: n/a (metrics off)", style=COLOR_DIM
-                )
+                health, hcolor, conn_str = "tidak konek", COLOR_RED, f"{conns}/4"
             version = cf.get("version", "")
-            if version:
-                conn_line += Text(f"  ·  v{version}", style=COLOR_DIM)
-            text += conn_line
+            text += Text.assemble(
+                ("\n ☁ Tunnel ", COLOR_YELLOW), ("UP", f"{COLOR_GREEN} bold"),
+                ("  ·  edge ", COLOR_DIM), (conn_str, f"{hcolor} bold"),
+                (f" ({health})", hcolor),
+                (f"  ·  v{version}" if version else "", COLOR_DIM),
+            )
 
-            for host in cf.get("hostnames", [])[:2]:
-                text += Text.assemble(("\n     → ", COLOR_DIM), (host, COLOR_CYAN))
+            hostnames = cf.get("hostnames", [])
+            if hostnames:
+                text += Text(f"\n 🔗 Hostnames ({len(hostnames)}):", style=COLOR_DIM)
+                width = max((len(h) for h in hostnames), default=0) + 2
+                for i in range(0, len(hostnames), HOSTNAMES_PER_LINE):
+                    row = hostnames[i:i + HOSTNAMES_PER_LINE]
+                    line = "  ".join(h.ljust(width) for h in row).rstrip()
+                    text += Text("\n    ") + Text(line, style=COLOR_CYAN)
         else:
             state = cf.get("state", "stopped")
             text += Text.assemble(
-                ("\n  ☁ Tunnel: ", COLOR_YELLOW),
+                ("\n ☁ Tunnel ", COLOR_YELLOW),
                 (f"DOWN ({state})", f"{COLOR_RED} bold"),
             )
 
-    text += Text.assemble(
-        ("\n  ↓ RX: ", COLOR_GREEN), (f"{rx:.1f} KB/s", COLOR_WHITE),
-        ("\n  ↑ TX: ", COLOR_CYAN), (f"{tx:.1f} KB/s", COLOR_WHITE),
-    )
-
-    # Additional active interfaces (loopback already excluded upstream)
+    # Extra physical interfaces (virtual/bridge NICs hidden, loopback already
+    # excluded upstream). Usually empty since the primary NIC is shown above.
+    extras = []
     for iface in interfaces:
         ipv4 = iface.get("ipv4", "")
-        if ipv4 == primary or not iface.get("is_up", False):
-            continue  # skip the primary (shown above) and down interfaces
         name = iface.get("name", "")
-        text += Text.assemble(
-            ("\n    ", ""),
-            ("● ", COLOR_GREEN),
-            (f"{name}: ", COLOR_DIM),
-            (ipv4, COLOR_WHITE),
-        )
+        if ipv4 == primary or not iface.get("is_up", False):
+            continue
+        if name.startswith(NET_HIDDEN_IFACE_PREFIXES):
+            continue
+        extras.append(f"{name} {ipv4}")
+    if extras:
+        text += Text("\n ● ", style=COLOR_GREEN) + Text("  ".join(extras), style=COLOR_DIM)
 
     return Panel(text, title="[bold]Network[/]", border_style=COLOR_CYAN)
 
