@@ -244,11 +244,30 @@ def _build_network_panel(stats: Dict) -> Panel:
     rx = net.get("rx_speed_kbs", 0)
     tx = net.get("tx_speed_kbs", 0)
 
+    ip_info = stats.get("ip", {})
+    primary = ip_info.get("primary", "N/A")
+    interfaces = ip_info.get("interfaces", [])
+
     text = Text.assemble(
         (" NETWORK\n", f"{COLOR_WHITE} bold"),
         ("  ↓ RX: ", COLOR_GREEN), (f"{rx:.1f} KB/s", COLOR_WHITE),
         ("\n  ↑ TX: ", COLOR_CYAN), (f"{tx:.1f} KB/s", COLOR_WHITE),
+        ("\n  🌐 Local IP: ", COLOR_YELLOW), (f"{primary}", f"{COLOR_WHITE} bold"),
     )
+
+    # Additional active interfaces (loopback already excluded upstream)
+    for iface in interfaces:
+        ipv4 = iface.get("ipv4", "")
+        if ipv4 == primary or not iface.get("is_up", False):
+            continue  # skip the primary (shown above) and down interfaces
+        name = iface.get("name", "")
+        text += Text.assemble(
+            ("\n    ", ""),
+            ("● ", COLOR_GREEN),
+            (f"{name}: ", COLOR_DIM),
+            (ipv4, COLOR_WHITE),
+        )
+
     return Panel(text, title="[bold]Network[/]", border_style=COLOR_CYAN)
 
 

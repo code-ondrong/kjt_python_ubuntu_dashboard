@@ -1,8 +1,8 @@
 # 🖥 Terminal Dashboard Monitoring System (Ubuntu)
 
 A real-time terminal-based system monitoring dashboard for Ubuntu servers.
-Displays CPU (per-core), RAM, NVIDIA GPU, disk usage, network I/O, and top
-processes — all in a beautiful Rich-powered TUI.
+Displays CPU (per-core), RAM, NVIDIA GPU, disk usage, network I/O, local IP
+addresses, and top processes — all in a beautiful Rich-powered TUI.
 
 ## Preview
 
@@ -23,7 +23,8 @@ processes — all in a beautiful Rich-powered TUI.
 │  RAM  ███████████████████░░░░░  65%   6.5 GB / 16.0 GB       │
 ├───────────────────────────────┬───────────────────────────────┤
 │  DISK /: ████████░░░░ 45%    │  NETWORK                      │
-│  45G / 100G                  │  ↓ RX: 1.2 MB/s  ↑ TX: 340 KB/s│
+│  45G / 100G                  │  ↓ RX: 1.2 MB/s ↑ TX: 340 KB/s│
+│                              │  🌐 Local IP: 192.168.1.10    │
 ├───────────────────────────────┴───────────────────────────────┤
 │ 🔥 TOP 5 CPU              │  💾 TOP 5 RAM                    │
 │ PID  NAME         CPU% MEM%│  PID  NAME         CPU% MEM%    │

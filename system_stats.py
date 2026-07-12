@@ -6,6 +6,7 @@ system info, and top processes using psutil.
 """
 
 import os
+import socket
 import time
 from typing import Dict, List, Optional, Tuple
 
@@ -124,6 +125,67 @@ def get_network_speed() -> Dict[str, float]:
         _net_tracker = NetworkSpeedTracker()
         # First call will return 0; callers should treat 0 as "initialising"
     return _net_tracker.get_speed()
+
+
+# ── Local IP / Interfaces ────────────────────────────────────────────────
+
+def _primary_ip() -> str:
+    """
+    Best-effort discovery of the primary outbound local IP address.
+
+    Opens a UDP socket toward a public address — no packets are actually
+    sent, we only read the local endpoint the OS would route through.
+    Falls back to ``127.0.0.1`` when offline.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        return sock.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        sock.close()
+
+
+def get_local_ip() -> Dict:
+    """
+    Return the primary local IP plus per-interface IPv4 addresses.
+
+    Loopback interfaces are skipped in ``interfaces``. Returns::
+
+        {
+            "primary": "192.168.1.10",
+            "interfaces": [
+                {"name": "eth0", "ipv4": "192.168.1.10", "is_up": True},
+                ...
+            ],
+        }
+    """
+    primary = _primary_ip()
+
+    try:
+        if_addrs = psutil.net_if_addrs()
+        if_stats = psutil.net_if_stats()
+    except Exception:
+        if_addrs, if_stats = {}, {}
+
+    interfaces: List[Dict] = []
+    for name, addrs in if_addrs.items():
+        ipv4 = ""
+        for addr in addrs:
+            if addr.family == socket.AF_INET:
+                ipv4 = addr.address
+                break
+        if not ipv4 or ipv4.startswith("127."):
+            continue  # no IPv4 or loopback
+        stats = if_stats.get(name)
+        interfaces.append({
+            "name": name,
+            "ipv4": ipv4,
+            "is_up": bool(stats.isup) if stats else False,
+        })
+
+    return {"primary": primary, "interfaces": interfaces}
 
 
 # ── CPU Temperature ─────────────────────────────────────────────────────
