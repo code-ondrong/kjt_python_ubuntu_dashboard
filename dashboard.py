@@ -73,11 +73,14 @@ def _build_header(stats: Dict) -> Panel:
     uptime = stats.get("uptime", "N/A")
     load = stats.get("cpu", {}).get("load_avg", [])
     load_str = " ".join(str(x) for x in load)
+    local_ip = stats.get("ip", {}).get("primary", "N/A")
     status = stats.get("status", "")
 
     text = Text.assemble(
         (" 🖥  SYSTEM MONITOR — ", COLOR_CYAN),
         (hostname, f"{COLOR_WHITE} bold"),
+        ("   🌐 ", COLOR_YELLOW),
+        (local_ip, f"{COLOR_WHITE} bold"),
         ("\n", ""),
         (f" OS: {os_arch}", COLOR_DIM),
         ("   │   ", ""),
@@ -250,9 +253,9 @@ def _build_network_panel(stats: Dict) -> Panel:
 
     text = Text.assemble(
         (" NETWORK\n", f"{COLOR_WHITE} bold"),
-        ("  ↓ RX: ", COLOR_GREEN), (f"{rx:.1f} KB/s", COLOR_WHITE),
+        ("  🌐 Local IP: ", COLOR_YELLOW), (f"{primary}", f"{COLOR_WHITE} bold"),
+        ("\n  ↓ RX: ", COLOR_GREEN), (f"{rx:.1f} KB/s", COLOR_WHITE),
         ("\n  ↑ TX: ", COLOR_CYAN), (f"{tx:.1f} KB/s", COLOR_WHITE),
-        ("\n  🌐 Local IP: ", COLOR_YELLOW), (f"{primary}", f"{COLOR_WHITE} bold"),
     )
 
     # Additional active interfaces (loopback already excluded upstream)

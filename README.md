@@ -8,8 +8,8 @@ addresses, and top processes — all in a beautiful Rich-powered TUI.
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│   🖥 SYSTEM MONITOR — ubuntu-server   │ Uptime: 2h 15m       │
-│   OS: Ubuntu 22.04 x86_64   │ Load: 0.5 0.8 1.2             │
+│   🖥 SYSTEM MONITOR — ubuntu-server   🌐 192.168.1.10        │
+│   OS: Ubuntu 22.04 x86_64  │ Uptime: 2h 15m │ Load: 0.5 0.8 │
 ├───────────────────────────────┬───────────────────────────────┤
 │  CPU  ██████████████░░░ 73%  │  GPU 0: NVIDIA RTX 4090      │
 │  ┌─────────────────────────┐ │  Util: ████████████░░ 80%    │
