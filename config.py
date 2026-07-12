@@ -80,3 +80,21 @@ CLOUDFLARED_METRICS_URLS = [
     "http://127.0.0.1:2000",
     "http://127.0.0.1:20241",
 ]
+
+# ── Cloudflare API (optional) ────────────────────────────────────────────
+# For token-based / remotely-managed tunnels the public hostnames live in the
+# Cloudflare dashboard, not on disk. When enabled, the dashboard decodes the
+# account + tunnel ID from the running tunnel token and fetches the ingress
+# hostnames from the Cloudflare API. Needs an API token with permission
+# `Account > Cloudflare Tunnel > Read`, read from the env var / .env below.
+CLOUDFLARED_API_ENABLED = True
+CLOUDFLARE_API_TOKEN_ENV = "CLOUDFLARE_API_TOKEN"
+CLOUDFLARE_ACCOUNT_ID = ""   # optional override; auto-decoded from token if blank
+CLOUDFLARE_TUNNEL_ID = ""    # optional override; auto-decoded from token if blank
+
+# .env files searched for CLOUDFLARE_API_TOKEN (os environment takes priority).
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DOTENV_PATHS = [
+    os.path.join(_BASE_DIR, ".env"),
+    os.path.join(os.getcwd(), ".env"),
+]

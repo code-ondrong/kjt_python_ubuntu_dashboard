@@ -8,27 +8,37 @@ low-privilege signals and degrading gracefully when any one is unavailable:
   * the systemd service state (via ``systemctl is-active``)
   * the tunnel name / public hostnames from the local config file
   * the number of active edge connections from the local metrics endpoint
+  * public hostnames from the Cloudflare API for token-based tunnels whose
+    ingress config lives in the dashboard rather than on disk
 
 None of these require root; each is best-effort and skipped on failure.
 """
 
+import base64
 import json
 import os
 import re
 import shutil
 import subprocess
+import threading
+import time
 from typing import Dict, List, Optional
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import psutil
 
 from config import (
+    CLOUDFLARE_ACCOUNT_ID,
+    CLOUDFLARE_API_TOKEN_ENV,
+    CLOUDFLARE_TUNNEL_ID,
+    CLOUDFLARED_API_ENABLED,
     CLOUDFLARED_CONFIG_PATHS,
     CLOUDFLARED_ENABLED,
     CLOUDFLARED_METRICS_URLS,
     CLOUDFLARED_PROCESS_NAME,
     CLOUDFLARED_SERVICE,
+    DOTENV_PATHS,
 )
 
 
@@ -178,6 +188,137 @@ def _metrics_info() -> Dict:
     return {"connections": None, "version": ""}
 
 
+# ── Cloudflare API (hostnames for token-based tunnels) ───────────────────
+
+_CF_API = "https://api.cloudflare.com/client/v4"
+
+# Background-refreshed hostname cache so the render loop never blocks on the
+# remote API. A daemon thread updates these under the lock; readers copy out.
+_api_lock = threading.Lock()
+_api_hostnames: List[str] = []
+_api_next_refresh: float = 0.0
+_api_inflight: bool = False
+_API_TTL_OK = 3600.0   # re-check hostnames hourly on success
+_API_TTL_ERR = 120.0   # back off 2 min after a failed/incomplete attempt
+
+
+def _read_dotenv() -> Dict[str, str]:
+    """Parse the first readable ``.env`` file into a dict (best-effort)."""
+    for path in DOTENV_PATHS:
+        if not path or not os.path.isfile(path):
+            continue
+        env: Dict[str, str] = {}
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, val = line.split("=", 1)
+                    env[key.strip()] = val.strip().strip('"').strip("'")
+        except OSError:
+            continue
+        return env
+    return {}
+
+
+def _get_secret(name: str) -> str:
+    """Read *name* from the OS environment first, then any ``.env`` file."""
+    if os.environ.get(name):
+        return os.environ[name]
+    return _read_dotenv().get(name, "")
+
+
+def _decode_tunnel_token(cmdline: List[str]) -> Optional[Dict]:
+    """
+    Decode the ``--token`` value from a cloudflared cmdline into its account
+    and tunnel IDs. The token is base64(JSON) of ``{"a":..,"t":..,"s":..}``.
+    """
+    token = ""
+    for i, arg in enumerate(cmdline):
+        if arg == "--token" and i + 1 < len(cmdline):
+            token = cmdline[i + 1]
+            break
+        if arg.startswith("--token="):
+            token = arg.split("=", 1)[1]
+            break
+    if not token:
+        return None
+
+    pad = "=" * (-len(token) % 4)
+    for decoder in (base64.b64decode, base64.urlsafe_b64decode):
+        try:
+            data = json.loads(decoder(token + pad).decode("utf-8"))
+            return {"account_id": data.get("a", ""), "tunnel_id": data.get("t", "")}
+        except (ValueError, json.JSONDecodeError):
+            continue
+    return None
+
+
+def _resolve_ids(proc: Optional[Dict]) -> Dict:
+    """Return account/tunnel IDs from config overrides, else the tunnel token."""
+    if CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_TUNNEL_ID:
+        return {"account_id": CLOUDFLARE_ACCOUNT_ID, "tunnel_id": CLOUDFLARE_TUNNEL_ID}
+    if proc:
+        ids = _decode_tunnel_token(proc.get("cmdline", []))
+        if ids and ids["account_id"] and ids["tunnel_id"]:
+            return ids
+    return {"account_id": "", "tunnel_id": ""}
+
+
+def _fetch_api_hostnames(account_id: str, tunnel_id: str, api_token: str) -> List[str]:
+    """Fetch ingress hostnames from the Cloudflare tunnel configuration API."""
+    url = f"{_CF_API}/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations"
+    req = Request(url, headers={"Authorization": f"Bearer {api_token}"})
+    try:
+        with urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (URLError, OSError, ValueError, json.JSONDecodeError):
+        return []
+
+    ingress = (((data or {}).get("result") or {}).get("config") or {}).get("ingress") or []
+    hostnames: List[str] = []
+    for rule in ingress:
+        host = (rule or {}).get("hostname")
+        if host and host not in hostnames:
+            hostnames.append(host)
+    return hostnames
+
+
+def _api_hostnames_cached(proc: Optional[Dict]) -> List[str]:
+    """
+    Return the cached Cloudflare API hostnames, kicking off a background
+    refresh when the cache is stale. Never blocks the caller on the network.
+    """
+    global _api_next_refresh, _api_inflight
+
+    now = time.time()
+    with _api_lock:
+        if _api_inflight or now < _api_next_refresh:
+            return list(_api_hostnames)
+        token = _get_secret(CLOUDFLARE_API_TOKEN_ENV)
+        ids = _resolve_ids(proc)
+        if not (token and ids["account_id"] and ids["tunnel_id"]):
+            _api_next_refresh = now + _API_TTL_ERR  # not configured yet; retry later
+            return list(_api_hostnames)
+        _api_inflight = True
+
+    def _worker() -> None:
+        global _api_hostnames, _api_next_refresh, _api_inflight
+        hosts = _fetch_api_hostnames(ids["account_id"], ids["tunnel_id"], token)
+        with _api_lock:
+            if hosts:
+                _api_hostnames = hosts
+                _api_next_refresh = time.time() + _API_TTL_OK
+            else:
+                _api_next_refresh = time.time() + _API_TTL_ERR
+            _api_inflight = False
+
+    threading.Thread(target=_worker, daemon=True).start()
+    with _api_lock:
+        return list(_api_hostnames)
+
+
 # ── Public API ───────────────────────────────────────────────────────────
 
 def get_cloudflared_status() -> Dict:
@@ -192,7 +333,7 @@ def get_cloudflared_status() -> Dict:
             "state": str,           # 'active' | 'inactive' | 'failed' | 'stopped'
             "pid": int | None,
             "tunnel": str,          # tunnel name/id, if discoverable
-            "hostnames": [str],     # public hostnames from local config
+            "hostnames": [str],     # public hostnames (local config or Cloudflare API)
             "connections": int | None,  # active edge connections, if metrics reachable
             "version": str,         # cloudflared version, if metrics reachable
         }
@@ -225,6 +366,11 @@ def get_cloudflared_status() -> Dict:
     result["hostnames"] = cfg.get("hostnames", [])
     if not result["tunnel"] and proc:
         result["tunnel"] = _tunnel_name_from_cmdline(proc["cmdline"])
+
+    # Remotely-managed (token-based) tunnels keep their ingress config in the
+    # Cloudflare dashboard, so fall back to the API when nothing is on disk.
+    if not result["hostnames"] and CLOUDFLARED_API_ENABLED:
+        result["hostnames"] = _api_hostnames_cached(proc)
 
     metrics = _metrics_info()
     result["connections"] = metrics["connections"]

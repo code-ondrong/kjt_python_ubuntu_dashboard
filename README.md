@@ -132,6 +132,27 @@ fewer means degraded, `0` means it cannot reach the edge. Configure the
 service name, config path, and metrics URL under `CLOUDFLARED_*` in
 [`config.py`](config.py) (set `CLOUDFLARED_ENABLED = False` to hide it).
 
+### Showing hostnames for token-based (remotely-managed) tunnels
+
+If your tunnel was installed with a token (`cloudflared service install <TOKEN>`),
+there is no local `config.yml` — the ingress hostnames live in the Cloudflare
+dashboard. The monitor can fetch them via the Cloudflare API:
+
+1. Create an API token at **dash.cloudflare.com → My Profile → API Tokens**
+   with permission **Account → Cloudflare Tunnel → Read**.
+2. Make it available to the dashboard (the account & tunnel IDs are auto-decoded
+   from the running tunnel token):
+   ```bash
+   # systemd install — dedicated env file, token only (NOT your root .env)
+   echo 'CLOUDFLARE_API_TOKEN=xxxxxxxx' | sudo tee /opt/system-monitor/.env
+   sudo chown dashboard:dashboard /opt/system-monitor/.env
+   sudo chmod 600 /opt/system-monitor/.env
+   sudo systemctl restart dashboard
+   ```
+   Running locally instead? Just add the same line to the `.env` in the project
+   directory. The API is called at most hourly, cached, and fetched on a
+   background thread so the UI never blocks.
+
 ## Key Bindings
 
 | Key | Action |

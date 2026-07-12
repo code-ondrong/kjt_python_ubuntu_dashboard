@@ -9,6 +9,9 @@ User=dashboard
 Group=dashboard
 WorkingDirectory=/opt/system-monitor
 ExecStart=/opt/system-monitor/venv/bin/python /opt/system-monitor/main.py
+# Optional: put CLOUDFLARE_API_TOKEN=... here to show tunnel hostnames.
+# The leading '-' means the service still starts if the file is absent.
+EnvironmentFile=-/opt/system-monitor/.env
 Restart=always
 RestartSec=3
 StandardInput=tty
