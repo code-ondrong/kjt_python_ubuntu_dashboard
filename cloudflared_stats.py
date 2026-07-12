@@ -69,10 +69,20 @@ def _tunnel_name_from_cmdline(cmdline: List[str]) -> str:
     """
     if "run" not in cmdline:
         return ""
+    # Token-based tunnels are `... run --token <TOKEN>` with no name — never
+    # mistake the token value (or any flag value) for the tunnel name.
+    if any(a == "--token" or a.startswith("--token=") for a in cmdline):
+        return ""
     idx = cmdline.index("run")
+    skip_next = False
     for arg in cmdline[idx + 1:]:
-        if not arg.startswith("-"):
-            return arg
+        if skip_next:
+            skip_next = False
+            continue
+        if arg.startswith("-"):
+            skip_next = "=" not in arg  # a bare flag likely consumes the next arg
+            continue
+        return arg
     return ""
 
 
